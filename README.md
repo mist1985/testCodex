@@ -32,7 +32,18 @@ Alternatively, you can use the npm start script:
 npm start -- <url>
 ```
 
-The script prints a list of selectors to standard output.
+The script prints selectors grouped by how they were discovered. Output will
+resemble the following structure:
+
+```json
+{
+  "ids": ["#main"],
+  "testIds": ["[data-testid=\"header\"]"],
+  "names": ["input[name=\"search\"]"],
+  "text": ["button:has-text(\"Submit\")"],
+  "all": ["#main", "[data-testid=\"header\"]", ...]
+}
+```
 
 ## Example
 
