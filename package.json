@@ -1,0 +1,17 @@
+{
+  "name": "selector-extractor",
+  "version": "1.0.0",
+  "description": "Extracts DOM selectors from a webpage using Playwright",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "npm run build"
+  },
+  "dependencies": {
+    "playwright": "^1.43.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
