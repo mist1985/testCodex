@@ -4,16 +4,37 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.extractSelectors = extractSelectors;
-const playwright_1 = require("playwright");
 const path_1 = __importDefault(require("path"));
-const chalk_1 = __importDefault(require("chalk"));
+// Lazily require dependencies so we can show a helpful message when they are
+// missing (common when `npm install` hasn't been run yet).
+let chromium;
+let chalk;
+try {
+    ({ chromium } = require('playwright'));
+}
+catch {
+    console.error('The "playwright" package is required. Please run "npm install" before running this tool.');
+    process.exit(1);
+}
+try {
+    chalk = require('chalk');
+}
+catch {
+    chalk = {
+        blue: (s) => s,
+        green: (s) => s,
+        yellow: (s) => s,
+        magenta: (s) => s,
+        cyan: (s) => s,
+    };
+}
 /**
  * Extracts DOM selectors from the given URL. The selectors are grouped by
  * the attribute or strategy used to locate them. Any error will result in an
  * empty set of selectors but the browser will always close.
  */
 async function extractSelectors(url) {
-    const browser = await playwright_1.chromium.launch();
+    const browser = await chromium.launch();
     const page = await browser.newPage();
     try {
         await page.goto(url);
@@ -128,7 +149,7 @@ async function extractSelectors(url) {
         });
         const screenshotPath = path_1.default.join(process.cwd(), `screenshot-${Date.now()}.png`);
         await page.screenshot({ path: screenshotPath, fullPage: true });
-        console.log(chalk_1.default.green(`Screenshot saved to ${screenshotPath}`));
+        console.log(chalk.green(`Screenshot saved to ${screenshotPath}`));
         return groups;
     }
     catch {
@@ -147,8 +168,8 @@ async function extractSelectors(url) {
         process.exit(1);
     }
     const selectors = await extractSelectors(url);
-    console.log(chalk_1.default.blue('Extracted selectors grouped by strategy:\n'));
-    console.log(chalk_1.default.yellow(JSON.stringify({
+    console.log(chalk.blue('Extracted selectors grouped by strategy:\n'));
+    console.log(chalk.yellow(JSON.stringify({
         ids: selectors.ids,
         testIds: selectors.testIds,
         names: selectors.names,
@@ -156,6 +177,6 @@ async function extractSelectors(url) {
         text: selectors.text,
         all: selectors.all
     }, null, 2)));
-    console.log(chalk_1.default.magenta('\nGenerated page object:\n'));
-    console.log(chalk_1.default.cyan(JSON.stringify(selectors.pageObject, null, 2)));
+    console.log(chalk.magenta('\nGenerated page object:\n'));
+    console.log(chalk.cyan(JSON.stringify(selectors.pageObject, null, 2)));
 })();

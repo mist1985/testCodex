@@ -8,7 +8,7 @@ This tool extracts useful DOM selectors from a web page using [Playwright](https
 
 ## Installation
 
-1. Install dependencies:
+1. Install dependencies (this will install Playwright and other required packages):
    ```bash
    npm install
    ```
@@ -16,6 +16,8 @@ This tool extracts useful DOM selectors from a web page using [Playwright](https
    ```bash
    npm run build
    ```
+   If you get a "Cannot find module 'playwright'" error when running the tool,
+   ensure that `npm install` completed successfully.
 
 ## Usage
 
