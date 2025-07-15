@@ -1,6 +1,30 @@
-import { chromium } from 'playwright';
 import path from 'path';
-import chalk from 'chalk';
+
+// Lazily require dependencies so we can show a helpful message when they are
+// missing (common when `npm install` hasn't been run yet).
+let chromium: any;
+let chalk: any;
+
+try {
+  ({ chromium } = require('playwright'));
+} catch {
+  console.error(
+    'The "playwright" package is required. Please run "npm install" before running this tool.'
+  );
+  process.exit(1);
+}
+
+try {
+  chalk = require('chalk');
+} catch {
+  chalk = {
+    blue: (s: string) => s,
+    green: (s: string) => s,
+    yellow: (s: string) => s,
+    magenta: (s: string) => s,
+    cyan: (s: string) => s,
+  };
+}
 
 /**
  * Represents the grouped selectors extracted from a page.
