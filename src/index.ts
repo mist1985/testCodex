@@ -1,4 +1,6 @@
 import { chromium } from 'playwright';
+import path from 'path';
+import chalk from 'chalk';
 
 /**
  * Represents the grouped selectors extracted from a page.
@@ -10,10 +12,23 @@ export interface SelectorGroups {
   testIds: string[];
   /** Selectors that target elements by name attribute. */
   names: string[];
+  /** Selectors targeting elements by their ARIA role and name. */
+  roles: string[];
   /** Selectors derived from visible text content. */
   text: string[];
   /** All selectors combined without duplicates. */
   all: string[];
+}
+
+/** Represents a mapping of friendly element names to selectors following the
+ * Page Object Model principle. */
+export interface PageObject {
+  [key: string]: string;
+}
+
+export interface ExtractResult extends SelectorGroups {
+  /** Mapping of generated page object property names to selectors. */
+  pageObject: PageObject;
 }
 
 /**
@@ -21,7 +36,7 @@ export interface SelectorGroups {
  * the attribute or strategy used to locate them. Any error will result in an
  * empty set of selectors but the browser will always close.
  */
-export async function extractSelectors(url: string): Promise<SelectorGroups> {
+export async function extractSelectors(url: string): Promise<ExtractResult> {
   const browser = await chromium.launch();
   const page = await browser.newPage();
   try {
@@ -31,42 +46,90 @@ export async function extractSelectors(url: string): Promise<SelectorGroups> {
       const ids: string[] = [];
       const testIds: string[] = [];
       const names: string[] = [];
+      const roles: string[] = [];
       const text: string[] = [];
       const all: string[] = [];
+      const pageObj: Record<string, string> = {};
+
+      const camel = (str: string) =>
+        str
+          .toLowerCase()
+          .replace(/[^a-z0-9]+(.)/g, (_, chr) => chr.toUpperCase());
+
+      const defaultRole = (el: HTMLElement): string | null => {
+        const tag = el.tagName.toLowerCase();
+        if (tag === 'a') return 'link';
+        if (tag === 'button') return 'button';
+        if (tag === 'select') return 'combobox';
+        if (tag === 'option') return 'option';
+        if (tag === 'input') {
+          const type = (el.getAttribute('type') || '').toLowerCase();
+          if (type === 'checkbox') return 'checkbox';
+          if (type === 'radio') return 'radio';
+          if (type === 'submit' || type === 'button') return 'button';
+          return 'textbox';
+        }
+        return null;
+      };
 
       const elements = Array.from(document.querySelectorAll('*')) as HTMLElement[];
+      let index = 0;
       for (const el of elements) {
+        let sel = '';
+        let keyBase = '';
         if (el.id) {
-          const sel = `#${el.id}`;
+          sel = `#${el.id}`;
           ids.push(sel);
-          all.push(sel);
-          continue;
+          keyBase = el.id;
+        } else {
+          const testid = el.getAttribute('data-testid');
+          if (testid) {
+            sel = `[data-testid="${testid}"]`;
+            testIds.push(sel);
+            keyBase = testid;
+          } else {
+            const name = el.getAttribute('name');
+            if (name) {
+              sel = `${el.tagName.toLowerCase()}[name="${name}"]`;
+              names.push(sel);
+              keyBase = name;
+            } else {
+              const role = el.getAttribute('role') || defaultRole(el);
+              if (role) {
+                const label = el.getAttribute('aria-label') || el.innerText.trim();
+                if (label && label.length < 30) {
+                  const safe = label.replace(/\n+/g, ' ').trim();
+                  sel = `role=${role}[name="${safe}"]`;
+                  roles.push(sel);
+                  keyBase = safe.split(' ').slice(0, 3).join(' ');
+                } else {
+                  sel = `role=${role}`;
+                  roles.push(sel);
+                  keyBase = role;
+                }
+              } else {
+                const innerText = el.innerText.trim();
+                if (innerText && innerText.length < 30) {
+                  const trimmed = innerText.replace(/\n+/g, ' ').trim();
+                  sel = `${el.tagName.toLowerCase()}:has-text("${trimmed}")`;
+                  text.push(sel);
+                  keyBase = trimmed.split(' ').slice(0, 3).join(' ');
+                }
+              }
+            }
+          }
         }
 
-        const testid = el.getAttribute('data-testid');
-        if (testid) {
-          const sel = `[data-testid="${testid}"]`;
-          testIds.push(sel);
+        if (sel) {
           all.push(sel);
-          continue;
+          let prop = camel(keyBase || `${el.tagName.toLowerCase()}${index}`);
+          let suffix = 1;
+          while (pageObj[prop]) {
+            prop = `${prop}${suffix++}`;
+          }
+          pageObj[prop] = sel;
         }
-
-        const name = el.getAttribute('name');
-        if (name) {
-          const sel = `${el.tagName.toLowerCase()}[name="${name}"]`;
-          names.push(sel);
-          all.push(sel);
-          continue;
-        }
-
-        const innerText = el.innerText.trim();
-        if (innerText && innerText.length < 30) {
-          // Normalize multi-line text to a single line for stability
-          const trimmed = innerText.replace(/\n+/g, ' ').trim();
-          const sel = `${el.tagName.toLowerCase()}:has-text(\"${trimmed}\")`;
-          text.push(sel);
-          all.push(sel);
-        }
+        index++;
       }
 
       // Remove duplicates and return grouped selectors
@@ -75,15 +138,25 @@ export async function extractSelectors(url: string): Promise<SelectorGroups> {
         ids: unique(ids),
         testIds: unique(testIds),
         names: unique(names),
+        roles: unique(roles),
         text: unique(text),
         all: unique(all),
+        pageObject: pageObj,
       };
     });
+
+    const screenshotPath = path.join(
+      process.cwd(),
+      `screenshot-${Date.now()}.png`
+    );
+    await page.screenshot({ path: screenshotPath, fullPage: true });
+
+    console.log(chalk.green(`Screenshot saved to ${screenshotPath}`));
 
     return groups;
   } catch {
     // If any error occurs we return empty groups to avoid throwing
-    return { ids: [], testIds: [], names: [], text: [], all: [] };
+    return { ids: [], testIds: [], names: [], roles: [], text: [], all: [], pageObject: {} };
   } finally {
     await browser.close();
   }
@@ -97,6 +170,16 @@ export async function extractSelectors(url: string): Promise<SelectorGroups> {
     process.exit(1);
   }
   const selectors = await extractSelectors(url);
-  console.log('Extracted selectors grouped by strategy:\n');
-  console.log(JSON.stringify(selectors, null, 2));
+  console.log(chalk.blue('Extracted selectors grouped by strategy:\n'));
+  console.log(chalk.yellow(JSON.stringify({
+    ids: selectors.ids,
+    testIds: selectors.testIds,
+    names: selectors.names,
+    roles: selectors.roles,
+    text: selectors.text,
+    all: selectors.all
+  }, null, 2)));
+
+  console.log(chalk.magenta('\nGenerated page object:\n'));
+  console.log(chalk.cyan(JSON.stringify(selectors.pageObject, null, 2)));
 })();
