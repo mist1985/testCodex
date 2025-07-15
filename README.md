@@ -1,7 +1,6 @@
 # Selector Extractor
 
-This tool extracts useful DOM selectors from a web page using [Playwright](https://playwright.dev/).
-
+This tool extracts useful DOM selectors from a web page using [Playwright](https://playwright.dev/). It also generates a Page Object Model mapping and saves a screenshot of the page.
 ## Prerequisites
 
 - Node.js v14 or later
@@ -32,16 +31,26 @@ Alternatively, you can use the npm start script:
 npm start -- <url>
 ```
 
-The script prints selectors grouped by how they were discovered. Output will
-resemble the following structure:
+The script prints selectors grouped by how they were discovered and also
+generates a mapping that can be used in Page Object Models. Each element's ARIA
+role and accessible name are considered to produce Playwright `getByRole`
+selectors when possible. A screenshot is saved in the current directory. The
+output structure is as follows:
 
 ```json
 {
   "ids": ["#main"],
   "testIds": ["[data-testid=\"header\"]"],
   "names": ["input[name=\"search\"]"],
+  "roles": ["role=button[name=\"Submit\"]"],
   "text": ["button:has-text(\"Submit\")"],
-  "all": ["#main", "[data-testid=\"header\"]", ...]
+  "all": ["#main", "[data-testid=\"header\"]", ...],
+  "pageObject": {
+    "main": "#main",
+    "header": "[data-testid=\"header\"]",
+    "searchInput": "input[name=\"search\"]",
+    "submitButton": "button:has-text(\"Submit\")"
+  }
 }
 ```
 

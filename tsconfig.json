@@ -5,8 +5,8 @@
     "outDir": "dist",
     "strict": true,
     "esModuleInterop": true,
-    "types": ["node"],
-    "lib": ["esnext", "DOM"]
+    "lib": ["esnext", "DOM"],
+    "skipLibCheck": true
   },
   "include": ["src/**/*"]
 }
